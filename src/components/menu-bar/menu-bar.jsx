@@ -19,7 +19,7 @@ import SaveStatus from './save-status.jsx';
 import ProjectWatcher from '../../containers/project-watcher.jsx';
 import MenuBarMenu from './menu-bar-menu.jsx';
 import MenuLabel from './tw-menu-label.jsx';
-import {MenuItem, MenuSection} from '../menu/menu.jsx';
+import {MenuItem, MenuSection, Submenu} from '../menu/menu.jsx';
 import ProjectTitleInput from './project-title-input.jsx';
 import AuthorInfo from './author-info.jsx';
 import SB3Downloader from '../../containers/sb3-downloader.jsx';
@@ -84,6 +84,7 @@ import {setFileHandle} from '../../reducers/tw.js';
 import collectMetadata from '../../lib/collect-metadata';
 
 import styles from './menu-bar.css';
+import settingsMenuStyles from './settings-menu.css';
 
 import helpIcon from '../../lib/assets/icon--tutorials.svg';
 import mystuffIcon from './icon--mystuff.png';
@@ -712,6 +713,33 @@ class MenuBar extends React.Component {
                                                 description="Menu bar item to manage restore points"
                                                 id="tw.menuBar.restorePoints"
                                             />
+                                        </MenuItem>
+                                    </MenuSection>
+                                    <MenuSection>
+                                        <MenuItem>
+                                            <div className={settingsMenuStyles.option}>
+                                                <span className={settingsMenuStyles.submenuLabel}>
+                                                    <FormattedMessage
+                                                        defaultMessage="Lesson Toolbox"
+                                                        description="Lesson toolbox submenu"
+                                                        id="gui.menuBar.lessonToolbox"
+                                                    />
+                                                </span>
+                                                <img
+                                                    className={settingsMenuStyles.expandCaret}
+                                                    src={dropdownCaret}
+                                                    draggable={false}
+                                                />
+                                            </div>
+                                            <Submenu place={this.props.isRtl ? 'left' : 'right'}>
+                                                <MenuItem>
+                                                    <FormattedMessage
+                                                        defaultMessage="Coming sooner yea!"
+                                                        description="Placeholder item for Lesson Toolbox submenu"
+                                                        id="gui.menuBar.lessonToolbox.comingSoon"
+                                                    />
+                                                </MenuItem>
+                                            </Submenu>
                                         </MenuItem>
                                     </MenuSection>
                                 </MenuBarMenu>
