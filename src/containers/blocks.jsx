@@ -21,6 +21,7 @@ import DragConstants from '../lib/drag-constants';
 import defineDynamicBlock from '../lib/define-dynamic-block';
 import {Theme} from '../lib/themes';
 import {injectExtensionBlockTheme, injectExtensionCategoryTheme} from '../lib/themes/blockHelpers';
+import {filterToolboxXML} from '../lib/lesson-toolbox';
 
 import {connect} from 'react-redux';
 import {updateToolbox} from '../reducers/toolbox';
@@ -240,7 +241,8 @@ class Blocks extends React.Component {
             this.props.locale !== nextProps.locale ||
             this.props.anyModalVisible !== nextProps.anyModalVisible ||
             this.props.stageSize !== nextProps.stageSize ||
-            this.props.customStageSize !== nextProps.customStageSize
+            this.props.customStageSize !== nextProps.customStageSize ||
+            this.props.lessonToolbox !== nextProps.lessonToolbox
         );
     }
     componentDidUpdate (prevProps) {
@@ -254,6 +256,17 @@ class Blocks extends React.Component {
         // Do not check against prevProps.toolboxXML because that may not have been rendered.
         if (this.props.isVisible && this.props.toolboxXML !== this._renderedToolboxXML) {
             this.requestToolboxUpdate();
+        }
+
+        // If lesson toolbox config changed, rebuild toolbox
+        if (this.props.lessonToolbox !== prevProps.lessonToolbox) {
+            const toolboxXML = this.getToolboxXML();
+            if (toolboxXML) {
+                const filtered = this.props.lessonToolbox && this.props.lessonToolbox.config ?
+                    filterToolboxXML(toolboxXML, this.props.lessonToolbox.config) :
+                    toolboxXML;
+                this.props.updateToolboxState(filtered);
+            }
         }
 
         if (this.props.isVisible === prevProps.isVisible) {
@@ -466,7 +479,10 @@ class Blocks extends React.Component {
         // When we change sprites, update the toolbox to have the new sprite's blocks
         const toolboxXML = this.getToolboxXML();
         if (toolboxXML) {
-            this.props.updateToolboxState(toolboxXML);
+            const filtered = this.props.lessonToolbox && this.props.lessonToolbox.config ?
+                filterToolboxXML(toolboxXML, this.props.lessonToolbox.config) :
+                toolboxXML;
+            this.props.updateToolboxState(filtered);
         }
 
         if (this.props.vm.editingTarget && !this.props.workspaceMetrics.targets[this.props.vm.editingTarget.id]) {
@@ -569,7 +585,10 @@ class Blocks extends React.Component {
         // Update the toolbox with new blocks if possible
         const toolboxXML = this.getToolboxXML();
         if (toolboxXML) {
-            this.props.updateToolboxState(toolboxXML);
+            const filtered = this.props.lessonToolbox && this.props.lessonToolbox.config ?
+                filterToolboxXML(toolboxXML, this.props.lessonToolbox.config) :
+                toolboxXML;
+            this.props.updateToolboxState(filtered);
         }
     }
     handleBlocksInfoUpdate (categoryInfo) {
@@ -769,6 +788,12 @@ Blocks.propTypes = {
     stageSize: PropTypes.oneOf(Object.keys(STAGE_DISPLAY_SIZES)).isRequired,
     theme: PropTypes.instanceOf(Theme),
     toolboxXML: PropTypes.string,
+    lessonToolbox: PropTypes.shape({
+        config: PropTypes.shape({
+            allowOpcodes: PropTypes.arrayOf(PropTypes.string),
+            allowCategories: PropTypes.arrayOf(PropTypes.string)
+        })
+    }),
     updateMetrics: PropTypes.func,
     updateToolboxState: PropTypes.func,
     useCatBlocks: PropTypes.bool,
@@ -811,6 +836,7 @@ const mapStateToProps = state => ({
     locale: state.locales.locale,
     messages: state.locales.messages,
     toolboxXML: state.scratchGui.toolbox.toolboxXML,
+    lessonToolbox: state.scratchGui.lessonToolbox,
     customProceduresVisible: state.scratchGui.customProcedures.active,
     workspaceMetrics: state.scratchGui.workspaceMetrics,
     useCatBlocks: isTimeTravel2020(state)

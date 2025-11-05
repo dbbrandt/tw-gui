@@ -25,6 +25,7 @@ import themeReducer, {themeInitialState} from './theme';
 import timeoutReducer, {timeoutInitialState} from './timeout';
 import timeTravelReducer, {timeTravelInitialState} from './time-travel';
 import toolboxReducer, {toolboxInitialState} from './toolbox';
+import lessonToolboxReducer, {lessonToolboxInitialState} from './lesson-toolbox';
 import twReducer, {twInitialState} from './tw';
 import customStageSizeReducer, {customStageSizeInitialState} from './custom-stage-size';
 import vmReducer, {vmInitialState} from './vm';
@@ -64,6 +65,7 @@ const guiInitialState = {
     timeout: timeoutInitialState,
     timeTravel: timeTravelInitialState,
     toolbox: toolboxInitialState,
+    lessonToolbox: lessonToolboxInitialState,
     tw: twInitialState,
     vm: vmInitialState,
     vmStatus: vmStatusInitialState,
@@ -170,6 +172,7 @@ const guiReducer = combineReducers({
     timeout: timeoutReducer,
     timeTravel: timeTravelReducer,
     toolbox: toolboxReducer,
+    lessonToolbox: lessonToolboxReducer,
     tw: twReducer,
     vm: vmReducer,
     vmStatus: vmStatusReducer,

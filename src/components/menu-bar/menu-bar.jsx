@@ -82,6 +82,7 @@ import {
 import {setFileHandle} from '../../reducers/tw.js';
 
 import collectMetadata from '../../lib/collect-metadata';
+import {setLessonToolboxConfig, clearLessonToolboxConfig} from '../../reducers/lesson-toolbox';
 
 import styles from './menu-bar.css';
 import settingsMenuStyles from './settings-menu.css';
@@ -228,8 +229,12 @@ class MenuBar extends React.Component {
             'handleKeyPress',
             'handleRestoreOption',
             'getSaveToComputerHandler',
-            'restoreOptionMessage'
+            'restoreOptionMessage',
+            'handleLessonToolboxLoadClick',
+            'handleLessonToolboxConfigSelected',
+            'handleLessonToolboxClear'
         ]);
+        this.lessonConfigInput = React.createRef();
     }
     componentDidMount () {
         document.addEventListener('keydown', this.handleKeyPress);
@@ -439,6 +444,34 @@ class MenuBar extends React.Component {
             callback();
             this.props.onRequestCloseAbout();
         };
+    }
+    handleLessonToolboxLoadClick () {
+        if (this.lessonConfigInput && this.lessonConfigInput.current) {
+            this.lessonConfigInput.current.click();
+        }
+    }
+    async handleLessonToolboxConfigSelected (e) {
+        try {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const text = await file.text();
+            const config = JSON.parse(text);
+            this.props.setLessonToolboxConfig(config);
+        } catch (err) {
+            // swallow errors; this is a simple POC
+            // eslint-disable-next-line no-console
+            console.error('Failed to load lesson toolbox config', err);
+        } finally {
+            // reset input so same file can be re-selected later
+            if (this.lessonConfigInput && this.lessonConfigInput.current) {
+                this.lessonConfigInput.current.value = '';
+            }
+            this.props.onRequestCloseFile();
+        }
+    }
+    handleLessonToolboxClear () {
+        this.props.clearLessonToolboxConfig();
+        this.props.onRequestCloseFile();
     }
     render () {
         const saveNowMessage = (
@@ -732,11 +765,18 @@ class MenuBar extends React.Component {
                                                 />
                                             </div>
                                             <Submenu place={this.props.isRtl ? 'left' : 'right'}>
-                                                <MenuItem>
+                                                <MenuItem onClick={this.handleLessonToolboxLoadClick}>
                                                     <FormattedMessage
-                                                        defaultMessage="Coming sooner yea!"
-                                                        description="Placeholder item for Lesson Toolbox submenu"
-                                                        id="gui.menuBar.lessonToolbox.comingSoon"
+                                                        defaultMessage="Load Config"
+                                                        description="Load a JSON config to filter toolbox"
+                                                        id="gui.menuBar.lessonToolbox.loadConfig"
+                                                    />
+                                                </MenuItem>
+                                                <MenuItem onClick={this.handleLessonToolboxClear}>
+                                                    <FormattedMessage
+                                                        defaultMessage="Clear Config"
+                                                        description="Clear the lesson toolbox filter"
+                                                        id="gui.menuBar.lessonToolbox.clearConfig"
                                                     />
                                                 </MenuItem>
                                             </Submenu>
@@ -1074,6 +1114,13 @@ class MenuBar extends React.Component {
 
         return (
             <React.Fragment>
+                <input
+                    ref={this.lessonConfigInput}
+                    type="file"
+                    accept="application/json,.json"
+                    style={{display: 'none'}}
+                    onChange={this.handleLessonToolboxConfigSelected}
+                />
                 {menuBar}
                 {/* <TWNews /> */}
             </React.Fragment>
@@ -1170,6 +1217,8 @@ MenuBar.propTypes = {
     onSetTimeTravelMode: PropTypes.func,
     onShare: PropTypes.func,
     onStartSelectingFileUpload: PropTypes.func,
+    setLessonToolboxConfig: PropTypes.func,
+    clearLessonToolboxConfig: PropTypes.func,
     onToggleLoginOpen: PropTypes.func,
     projectId: PropTypes.string,
     projectTitle: PropTypes.string,
@@ -1257,7 +1306,9 @@ const mapDispatchToProps = dispatch => ({
     onClickSave: () => dispatch(manualUpdateProject()),
     onClickSaveAsCopy: () => dispatch(saveProjectAsCopy()),
     onSeeCommunity: () => dispatch(setPlayer(true)),
-    onSetTimeTravelMode: mode => dispatch(setTimeTravel(mode))
+    onSetTimeTravelMode: mode => dispatch(setTimeTravel(mode)),
+    setLessonToolboxConfig: config => dispatch(setLessonToolboxConfig(config)),
+    clearLessonToolboxConfig: () => dispatch(clearLessonToolboxConfig())
 });
 
 export default compose(
