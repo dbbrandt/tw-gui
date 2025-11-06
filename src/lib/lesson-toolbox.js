@@ -19,6 +19,13 @@ export const filterToolboxXML = function (xmlString, config = {}) {
         const id = (cat.getAttribute('id') || '').toLowerCase();
         const name = (cat.getAttribute('name') || '').toLowerCase();
         const categoryKey = id || name;
+        const isCustom = cat.hasAttribute('custom'); // dynamic categories like VARIABLES / PROCEDURE
+
+        // Never hide custom categories; also do not filter their contents here
+        if (isCustom) {
+            continue;
+        }
+
         if (catSet.size && !catSet.has(categoryKey)) {
             cat.remove();
             continue;
