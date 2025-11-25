@@ -83,6 +83,7 @@ import {setFileHandle} from '../../reducers/tw.js';
 
 import collectMetadata from '../../lib/collect-metadata';
 import {setLessonToolboxConfig, clearLessonToolboxConfig} from '../../reducers/lesson-toolbox';
+import {saveLessonConfigToLocalStorage, clearLessonConfigFromLocalStorage} from '../../lib/lesson-toolbox';
 
 import styles from './menu-bar.css';
 import settingsMenuStyles from './settings-menu.css';
@@ -457,6 +458,7 @@ class MenuBar extends React.Component {
             const text = await file.text();
             const config = JSON.parse(text);
             this.props.setLessonToolboxConfig(config);
+            saveLessonConfigToLocalStorage(config);
         } catch (err) {
             // swallow errors; this is a simple POC
             // eslint-disable-next-line no-console
@@ -471,6 +473,7 @@ class MenuBar extends React.Component {
     }
     handleLessonToolboxClear () {
         this.props.clearLessonToolboxConfig();
+        clearLessonConfigFromLocalStorage();
         this.props.onRequestCloseFile();
     }
     render () {

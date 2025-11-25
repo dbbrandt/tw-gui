@@ -21,7 +21,7 @@ import DragConstants from '../lib/drag-constants';
 import defineDynamicBlock from '../lib/define-dynamic-block';
 import {Theme} from '../lib/themes';
 import {injectExtensionBlockTheme, injectExtensionCategoryTheme} from '../lib/themes/blockHelpers';
-import {filterToolboxXML} from '../lib/lesson-toolbox';
+import {filterToolboxXML, autoLoadDefaultLessonConfig} from '../lib/lesson-toolbox';
 
 import {connect} from 'react-redux';
 import {updateToolbox} from '../reducers/toolbox';
@@ -36,6 +36,7 @@ import {activateCustomProcedures, deactivateCustomProcedures} from '../reducers/
 import {setConnectionModalExtensionId} from '../reducers/connection-modal';
 import {updateMetrics} from '../reducers/workspace-metrics';
 import {isTimeTravel2020} from '../reducers/time-travel';
+import {setLessonToolboxConfig as setLessonToolboxConfigAction} from '../reducers/lesson-toolbox';
 
 import {
     activateTab,
@@ -230,6 +231,11 @@ class Blocks extends React.Component {
         }
 
         gentlyRequestPersistentStorage();
+
+        // TW-5: attempt to auto-load lesson toolbox config (localStorage first, then fs fallback in Electron)
+        if (!this.props.lessonToolbox || !this.props.lessonToolbox.config) {
+            autoLoadDefaultLessonConfig(this.props.setLessonToolboxConfig);
+        }
     }
     shouldComponentUpdate (nextProps, nextState) {
         return (
@@ -795,6 +801,7 @@ Blocks.propTypes = {
         })
     }),
     updateMetrics: PropTypes.func,
+    setLessonToolboxConfig: PropTypes.func,
     updateToolboxState: PropTypes.func,
     useCatBlocks: PropTypes.bool,
     vm: PropTypes.instanceOf(VM).isRequired,
@@ -865,6 +872,9 @@ const mapDispatchToProps = dispatch => ({
     },
     updateMetrics: metrics => {
         dispatch(updateMetrics(metrics));
+    },
+    setLessonToolboxConfig: config => {
+        dispatch(setLessonToolboxConfigAction(config));
     }
 });
 
