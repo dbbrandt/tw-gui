@@ -124,7 +124,8 @@ class Blocks extends React.Component {
             'onWorkspaceMetricsChange',
             'setBlocks',
             'setLocale',
-            'handleEnableProcedureReturns'
+            'handleEnableProcedureReturns',
+            'applyLessonToolboxIfPossible'
         ]);
         this.ScratchBlocks.prompt = this.handlePromptStart;
         this.ScratchBlocks.statusButtonCallback = this.handleConnectionModalStart;
@@ -135,6 +136,7 @@ class Blocks extends React.Component {
         };
         this.onTargetsUpdate = debounce(this.onTargetsUpdate, 100);
         this.toolboxUpdateQueue = [];
+        this._pendingLessonToolboxApply = false;
     }
     componentDidMount () {
         this.ScratchBlocks = VMScratchBlocks(this.props.vm, this.props.useCatBlocks);
@@ -232,9 +234,10 @@ class Blocks extends React.Component {
 
         gentlyRequestPersistentStorage();
 
-        // TW-5: attempt to auto-load lesson toolbox config (localStorage first, then fs fallback in Electron)
+        // TW-5: attempt to auto-load lesson toolbox config (localStorage first, then twBridge, then fs fallback)
         if (!this.props.lessonToolbox || !this.props.lessonToolbox.config) {
-            autoLoadDefaultLessonConfig(this.props.setLessonToolboxConfig);
+            const source = autoLoadDefaultLessonConfig(this.props.setLessonToolboxConfig);
+            try { console.info('[LessonToolbox] Blocks.mount: autoLoad invoked ->', source); } catch (_) {}
         }
     }
     shouldComponentUpdate (nextProps, nextState) {
@@ -266,13 +269,7 @@ class Blocks extends React.Component {
 
         // If lesson toolbox config changed, rebuild toolbox
         if (this.props.lessonToolbox !== prevProps.lessonToolbox) {
-            const toolboxXML = this.getToolboxXML();
-            if (toolboxXML) {
-                const filtered = this.props.lessonToolbox && this.props.lessonToolbox.config ?
-                    filterToolboxXML(toolboxXML, this.props.lessonToolbox.config) :
-                    toolboxXML;
-                this.props.updateToolboxState(filtered);
-            }
+            this.applyLessonToolboxIfPossible('on lessonToolbox change');
         }
 
         if (this.props.isVisible === prevProps.isVisible) {
@@ -296,6 +293,9 @@ class Blocks extends React.Component {
             } else {
                 this.props.vm.refreshWorkspace();
                 this.requestToolboxUpdate();
+                if (this._pendingLessonToolboxApply || (this.props.lessonToolbox && this.props.lessonToolbox.config)) {
+                    setTimeout(() => this.applyLessonToolboxIfPossible('after visible update'), 0);
+                }
             }
 
             window.dispatchEvent(new Event('resize'));
@@ -320,6 +320,44 @@ class Blocks extends React.Component {
             this.updateToolbox();
         }, 0);
     }
+    refreshToolboxWithXML (xml) {
+        const categoryId = this.workspace.toolbox_.getSelectedCategoryId();
+        const offset = this.workspace.toolbox_.getCategoryScrollOffset();
+        this.workspace.updateToolbox(xml);
+        this._renderedToolboxXML = xml;
+        this.workspace.toolboxRefreshEnabled_ = true;
+        const currentCategoryPos = this.workspace.toolbox_.getCategoryPositionById(categoryId);
+        const currentCategoryLen = this.workspace.toolbox_.getCategoryLengthById(categoryId);
+        if (offset < currentCategoryLen) {
+            this.workspace.toolbox_.setFlyoutScrollPos(currentCategoryPos + offset);
+        } else {
+            this.workspace.toolbox_.setFlyoutScrollPos(currentCategoryPos);
+        }
+    }
+    applyLessonToolboxIfPossible (reason = '') {
+        const hasConfig = this.props.lessonToolbox && this.props.lessonToolbox.config;
+        const toolboxXML = this.getToolboxXML();
+        if (!toolboxXML) {
+            this._pendingLessonToolboxApply = !!hasConfig;
+            try { console.warn('[LessonToolbox] apply deferred (no toolboxXML yet):', reason); } catch (_) {}
+            return;
+        }
+        if (!hasConfig) {
+            // Clear filter: restore unfiltered toolbox
+            try { console.info('[LessonToolbox] clearing filtered toolbox:', reason); } catch (_) {}
+            this.refreshToolboxWithXML(toolboxXML);
+            this.props.updateToolboxState(toolboxXML);
+            this._pendingLessonToolboxApply = false;
+            return;
+        }
+        const filtered = filterToolboxXML(toolboxXML, this.props.lessonToolbox.config);
+        try { console.info('[LessonToolbox] applying filtered toolbox:', reason); } catch (_) {}
+        // Apply directly to workspace to avoid timing races
+        this.refreshToolboxWithXML(filtered);
+        // Keep Redux in sync but do not rely on it for immediate UI
+        this.props.updateToolboxState(filtered);
+        this._pendingLessonToolboxApply = false;
+    }
     setLocale () {
         this.ScratchBlocks.ScratchMsgs.setLocale(this.props.locale);
         this.props.vm.setLocale(this.props.locale, this.props.messages)
@@ -328,6 +366,8 @@ class Blocks extends React.Component {
                 this.workspace.getFlyout().setRecyclingEnabled(false);
                 this.props.vm.refreshWorkspace();
                 this.requestToolboxUpdate();
+                // Try to apply lesson toolbox soon after locale setup
+                setTimeout(() => this.applyLessonToolboxIfPossible('after setLocale'), 0);
                 this.withToolboxUpdates(() => {
                     this.workspace.getFlyout().setRecyclingEnabled(true);
                 });
@@ -483,14 +523,6 @@ class Blocks extends React.Component {
     }
     onWorkspaceUpdate (data) {
         // When we change sprites, update the toolbox to have the new sprite's blocks
-        const toolboxXML = this.getToolboxXML();
-        if (toolboxXML) {
-            const filtered = this.props.lessonToolbox && this.props.lessonToolbox.config ?
-                filterToolboxXML(toolboxXML, this.props.lessonToolbox.config) :
-                toolboxXML;
-            this.props.updateToolboxState(filtered);
-        }
-
         if (this.props.vm.editingTarget && !this.props.workspaceMetrics.targets[this.props.vm.editingTarget.id]) {
             this.onWorkspaceMetricsChange();
         }
@@ -529,6 +561,9 @@ class Blocks extends React.Component {
         // fresh workspace and we don't want any changes made to another sprites
         // workspace to be 'undone' here.
         this.workspace.clearUndo();
+
+        // Re-apply or clear lesson toolbox filter now that workspace XML is fully loaded
+        this.applyLessonToolboxIfPossible('after workspaceUpdate');
     }
     handleMonitorsUpdate (monitors) {
         // Update the checkboxes of the relevant monitors.
@@ -595,6 +630,10 @@ class Blocks extends React.Component {
                 filterToolboxXML(toolboxXML, this.props.lessonToolbox.config) :
                 toolboxXML;
             this.props.updateToolboxState(filtered);
+            // Also update the live workspace toolbox so newly added extension blocks respect the filter
+            if (this.props.lessonToolbox && this.props.lessonToolbox.config) {
+                this.refreshToolboxWithXML(filtered);
+            }
         }
     }
     handleBlocksInfoUpdate (categoryInfo) {
@@ -713,6 +752,9 @@ class Blocks extends React.Component {
             updateMetrics: updateMetricsProp,
             useCatBlocks,
             workspaceMetrics,
+            // TW-5: prevent leaking internal props to DOM
+            lessonToolbox,
+            setLessonToolboxConfig,
             ...props
         } = this.props;
         /* eslint-enable no-unused-vars */
@@ -843,9 +885,9 @@ const mapStateToProps = state => ({
     locale: state.locales.locale,
     messages: state.locales.messages,
     toolboxXML: state.scratchGui.toolbox.toolboxXML,
-    lessonToolbox: state.scratchGui.lessonToolbox,
     customProceduresVisible: state.scratchGui.customProcedures.active,
     workspaceMetrics: state.scratchGui.workspaceMetrics,
+    lessonToolbox: state.scratchGui.lessonToolbox,
     useCatBlocks: isTimeTravel2020(state)
 });
 

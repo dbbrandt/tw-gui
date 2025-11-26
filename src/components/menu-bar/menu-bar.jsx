@@ -83,7 +83,7 @@ import {setFileHandle} from '../../reducers/tw.js';
 
 import collectMetadata from '../../lib/collect-metadata';
 import {setLessonToolboxConfig, clearLessonToolboxConfig} from '../../reducers/lesson-toolbox';
-import {saveLessonConfigToLocalStorage, clearLessonConfigFromLocalStorage} from '../../lib/lesson-toolbox';
+import {saveLessonConfigToLocalStorage, clearLessonConfigFromLocalStorage, isValidLessonConfig} from '../../lib/lesson-toolbox';
 
 import styles from './menu-bar.css';
 import settingsMenuStyles from './settings-menu.css';
@@ -457,8 +457,15 @@ class MenuBar extends React.Component {
             if (!file) return;
             const text = await file.text();
             const config = JSON.parse(text);
-            this.props.setLessonToolboxConfig(config);
-            saveLessonConfigToLocalStorage(config);
+            if (isValidLessonConfig(config)) {
+                this.props.setLessonToolboxConfig(config);
+                saveLessonConfigToLocalStorage(config);
+            } else {
+                clearLessonConfigFromLocalStorage();
+                // optional: user feedback can be added later; for now, log
+                // eslint-disable-next-line no-console
+                console.warn('[LessonToolbox] Ignoring invalid/empty config file');
+            }
         } catch (err) {
             // swallow errors; this is a simple POC
             // eslint-disable-next-line no-console
